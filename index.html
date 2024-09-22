@@ -130,6 +130,13 @@
       cursor: pointer;
       margin-top: 10px;
     }
+    /* New Styles for Sharing and Accessing Tasks */
+    .share-access {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px; /* Add space between elements */
+    }
   </style>
 </head>
 <body>
@@ -161,9 +168,11 @@
     <ul id="taskList" class="task-list"></ul>
     <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Tasks</button>
 
-    <button class="delete-all-btn" onclick="shareTasks()">Share Tasks</button>
-    <input type="text" id="accessCode" placeholder="Enter Access Code" onkeypress="if(event.key === 'Enter') accessTasks();">
-    <button onclick="accessTasks()">Access Tasks</button>
+    <div class="share-access">
+      <button class="delete-all-btn" onclick="shareTasks()">Share Tasks</button>
+      <input type="text" id="accessCode" placeholder="Enter Access Code" onkeypress="if(event.key === 'Enter') accessTasks();">
+      <button onclick="accessTasks()">Access Tasks</button>
+    </div>
   </div>
 
   <div id="fileModal" class="modal">
@@ -229,10 +238,9 @@
                 <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
               </select>
             </p>
+            ${fileDisplay}
           </div>
-          ${fileDisplay}
         `;
-
         taskListElement.appendChild(taskItem);
       });
     }
@@ -270,7 +278,7 @@
 
     function shareTasks() {
       const code = Math.random().toString(36).substring(2, 8);
-      localStorage.setItem(code, JSON.stringify(tasks));
+      localStorage.setItem(code, JSON.stringify(tasks)); // Store tasks with the access code
       alert(`Share this code: ${code}`);
     }
 
@@ -279,7 +287,7 @@
       const sharedTasks = JSON.parse(localStorage.getItem(accessCode));
       if (sharedTasks) {
         tasks = sharedTasks;
-        updateLocalStorage();
+        updateLocalStorage(); // Update local storage with the new tasks
         renderTasks(tasks);
         alert('Tasks accessed successfully!');
       } else {
