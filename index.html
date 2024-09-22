@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List with Image Upload, Update, Filter & Modal</title>
+  <title>To-Do List with Persistent Data, File Uploads & Modal</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      background-color: #d4d3d3;
     }
     .container {
       max-width: 800px;
@@ -88,11 +88,11 @@
 <body>
 
   <div class="container">
-    <h1>To-Do List with Image Upload, Update, Filter & Modal</h1>
+    <h1>TO DO - By GrowBrandIndia</h1>
 
     <!-- Form to add task -->
     <div class="task-form">
-      <input type="file" id="imageInput" accept="image/jpeg">
+      <input type="file" id="fileInput" accept="*/*">
       <input type="text" id="taskInput" placeholder="Enter Task Description">
       <select id="statusInput">
         <option value="Pending">Pending</option>
@@ -117,50 +117,56 @@
     <ul id="taskList" class="task-list"></ul>
 
     <!-- Delete All Button -->
-    <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Tasks</button>
+    <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Data</button>
 
   </div>
 
   <!-- Modal -->
-  <div id="imageModal" class="modal">
+  <div id="fileModal" class="modal">
     <div class="modal-content">
       <span id="modalDescription"></span>
-      <img id="modalImage" src="" alt="Task Image">
+      <img id="modalImage" src="" alt="Task File" style="display: none;">
+      <video id="modalVideo" controls style="display: none; width: 100%;"></video>
+      <a id="modalLink" href="" target="_blank" style="display: none;">Download File</a>
       <button class="close-btn" onclick="closeModal()">Close</button>
     </div>
   </div>
 
   <script>
-    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+    const userId = 'unique_user_id';  // Unique ID for each user. You can generate this dynamically.
+    let tasks = JSON.parse(localStorage.getItem(userId + '_tasks')) || [];
 
     function addTask() {
-      const taskInput = document.getElementById('taskInput').value;
+      const taskInput = document.getElementById('taskInput').value || 'No description provided';
       const statusInput = document.getElementById('statusInput').value;
-      const imageInput = document.getElementById('imageInput').files[0];
+      const fileInput = document.getElementById('fileInput').files[0];
 
-      if (!taskInput || !imageInput) {
-        alert('Please provide a task description and upload an image.');
+      if (!fileInput) {
+        alert('Please upload a file.');
         return;
       }
 
       const reader = new FileReader();
       reader.onload = function (e) {
+        const fileType = fileInput.type.startsWith('image/') ? 'image' : fileInput.type.startsWith('video/') ? 'video' : 'file';
         const newTask = {
           id: Date.now(),
           description: taskInput,
           status: statusInput,
-          image: e.target.result
+          fileType: fileType,
+          fileName: fileInput.name,
+          file: e.target.result
         };
 
         tasks.push(newTask);
         updateLocalStorage();
         renderTasks(tasks);
       };
-      reader.readAsDataURL(imageInput);
+      reader.readAsDataURL(fileInput);
 
       // Clear the inputs
       document.getElementById('taskInput').value = '';
-      document.getElementById('imageInput').value = '';
+      document.getElementById('fileInput').value = '';
       document.getElementById('statusInput').value = 'Pending';
     }
 
@@ -171,6 +177,17 @@
       taskList.forEach(task => {
         const taskItem = document.createElement('li');
         taskItem.classList.add('task-item');
+        let fileDisplay;
+
+        // Check the file type to determine how to display it
+        if (task.fileType === 'image') {
+          fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'image')">`;
+        } else if (task.fileType === 'video') {
+          fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;" onclick="openModal('${task.file}', '${task.description}', 'video')"></video>`;
+        } else {
+          fileDisplay = `<a href="${task.file}" download="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'file')">${task.fileName}</a>`;
+        }
+
         taskItem.innerHTML = `
           <div>
             <p><strong>${task.description}</strong></p>
@@ -182,7 +199,7 @@
               </select>
             </p>
           </div>
-          <img src="${task.image}" alt="Task Image" onclick="openModal('${task.image}', '${task.description}')">
+          ${fileDisplay}
         `;
 
         taskListElement.appendChild(taskItem);
@@ -209,7 +226,7 @@
     }
 
     function deleteAllTasks() {
-      if (confirm('Are you sure you want to delete all tasks?')) {
+      if (confirm('Are you sure you want to delete all Data?')) {
         tasks = [];
         updateLocalStorage();
         renderTasks(tasks);
@@ -217,19 +234,40 @@
     }
 
     function updateLocalStorage() {
-      localStorage.setItem('tasks', JSON.stringify(tasks));
+      localStorage.setItem(userId + '_tasks', JSON.stringify(tasks));
     }
 
     // Modal Functions
-    function openModal(imageSrc, description) {
-      const modal = document.getElementById('imageModal');
-      document.getElementById('modalImage').src = imageSrc;
+    function openModal(fileSrc, description, fileType) {
+      const modal = document.getElementById('fileModal');
       document.getElementById('modalDescription').innerText = description;
+
+      // Handle display based on file type
+      const modalImage = document.getElementById('modalImage');
+      const modalVideo = document.getElementById('modalVideo');
+      const modalLink = document.getElementById('modalLink');
+
+      modalImage.style.display = 'none';
+      modalVideo.style.display = 'none';
+      modalLink.style.display = 'none';
+
+      if (fileType === 'image') {
+        modalImage.src = fileSrc;
+        modalImage.style.display = 'block';
+      } else if (fileType === 'video') {
+        modalVideo.src = fileSrc;
+        modalVideo.style.display = 'block';
+      } else {
+        modalLink.href = fileSrc;
+        modalLink.textContent = 'Download File';
+        modalLink.style.display = 'block';
+      }
+
       modal.style.display = 'block';
     }
 
     function closeModal() {
-      const modal = document.getElementById('imageModal');
+      const modal = document.getElementById('fileModal');
       modal.style.display = 'none';
     }
 
