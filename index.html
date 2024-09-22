@@ -3,20 +3,92 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List with Persistent Data, File Uploads, Paste, Share & Modal</title>
+  <title>To-Do List with Persistent Data, File Uploads & Modal</title>
   <style>
-    /* All your existing styles remain unchanged */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .task-form {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .task-list {
+      list-style-type: none;
+      padding: 0;
+    }
+    .task-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: white;
+      padding: 10px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .task-item img {
+      max-width: 80px;
+      max-height: 80px;
+      cursor: pointer;
+    }
+    .filter-dropdown {
+      margin-bottom: 20px;
+    }
+    .delete-all-btn {
+      margin-top: 20px;
+      display: block;
+      text-align: center;
+    }
+    /* Modal Styling */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.8);
+      padding-top: 50px;
+    }
+    .modal-content {
+      margin: auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 600px;
+      background-color: white;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .modal-content img {
+      max-width: 100%;
+      height: auto;
+    }
+    .close-btn {
+      background-color: red;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- Logo Section -->
-    <div class="logo">
-      <img src="https://growbrandindia.odoo.com/web/image/website/1/logo/growbrandindia.in?unique=58ac854" alt="Grow Brand India">
-    </div>
-
-    <h1>To-Do List with Persistent Data, File Uploads, Paste, Share & Modal</h1>
+    <h1>To-Do List with Persistent Data, File Uploads & Modal</h1>
 
     <!-- Form to add task -->
     <div class="task-form">
@@ -44,14 +116,6 @@
     <!-- Task List -->
     <ul id="taskList" class="task-list"></ul>
 
-    <!-- Share Task Section -->
-    <button onclick="shareTasks()">Share Tasks</button>
-    <p id="shareCode"></p>
-
-    <!-- Retrieve Tasks by Share Code -->
-    <input type="text" id="shareCodeInput" placeholder="Enter Share Code">
-    <button onclick="loadSharedTasks()">Load Shared Tasks</button>
-
     <!-- Delete All Button -->
     <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Tasks</button>
 
@@ -72,41 +136,33 @@
     const userId = 'unique_user_id';  // Unique ID for each user. You can generate this dynamically.
     let tasks = JSON.parse(localStorage.getItem(userId + '_tasks')) || [];
 
-    // Add task with or without file
     function addTask() {
       const taskInput = document.getElementById('taskInput').value || 'No description provided';
       const statusInput = document.getElementById('statusInput').value;
       const fileInput = document.getElementById('fileInput').files[0];
 
-      let newTask = {
-        id: Date.now(),
-        description: taskInput,
-        status: statusInput,
-        fileType: null,
-        fileName: null,
-        file: null
-      };
+      if (!fileInput) {
+        alert('Please upload a file.');
+        return;
+      }
 
-      if (fileInput) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const fileType = fileInput.type.startsWith('image/') ? 'image' : fileInput.type.startsWith('video/') ? 'video' : 'file';
-          newTask = {
-            ...newTask,
-            fileType: fileType,
-            fileName: fileInput.name,
-            file: e.target.result
-          };
-          tasks.push(newTask);
-          updateLocalStorage();
-          renderTasks(tasks);
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const fileType = fileInput.type.startsWith('image/') ? 'image' : fileInput.type.startsWith('video/') ? 'video' : 'file';
+        const newTask = {
+          id: Date.now(),
+          description: taskInput,
+          status: statusInput,
+          fileType: fileType,
+          fileName: fileInput.name,
+          file: e.target.result
         };
-        reader.readAsDataURL(fileInput);
-      } else {
+
         tasks.push(newTask);
         updateLocalStorage();
         renderTasks(tasks);
-      }
+      };
+      reader.readAsDataURL(fileInput);
 
       // Clear the inputs
       document.getElementById('taskInput').value = '';
@@ -114,49 +170,6 @@
       document.getElementById('statusInput').value = 'Pending';
     }
 
-    // Allow users to paste files
-    document.addEventListener('paste', (event) => {
-      const clipboardData = event.clipboardData || window.clipboardData;
-      const items = clipboardData.items;
-      if (items.length > 0) {
-        for (let i = 0; i < items.length; i++) {
-          const item = items[i];
-          if (item.kind === 'file') {
-            const file = item.getAsFile();
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = function (e) {
-                const fileType = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
-                openModal(e.target.result, 'Pasted File Preview', fileType);
-              };
-              reader.readAsDataURL(file);
-            }
-          }
-        }
-      }
-    });
-
-    // Share tasks via a generated code
-    function shareTasks() {
-      const shareCode = Math.random().toString(36).substr(2, 9);  // Generate a random code
-      localStorage.setItem(shareCode + '_tasks', JSON.stringify(tasks));
-      document.getElementById('shareCode').innerText = `Share Code: ${shareCode}`;
-    }
-
-    // Load tasks using share code
-    function loadSharedTasks() {
-      const shareCode = document.getElementById('shareCodeInput').value;
-      const sharedTasks = JSON.parse(localStorage.getItem(shareCode + '_tasks'));
-      if (sharedTasks) {
-        tasks = sharedTasks;
-        updateLocalStorage();
-        renderTasks(tasks);
-      } else {
-        alert('Invalid Share Code');
-      }
-    }
-
-    // Render tasks
     function renderTasks(taskList) {
       const taskListElement = document.getElementById('taskList');
       taskListElement.innerHTML = '';
@@ -171,10 +184,8 @@
           fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'image')">`;
         } else if (task.fileType === 'video') {
           fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;" onclick="openModal('${task.file}', '${task.description}', 'video')"></video>`;
-        } else if (task.fileName) {
-          fileDisplay = `<a href="${task.file}" download="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'file')">${task.fileName}</a>`;
         } else {
-          fileDisplay = '';  // No file, so nothing to display
+          fileDisplay = `<a href="${task.file}" download="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'file')">${task.fileName}</a>`;
         }
 
         taskItem.innerHTML = `
