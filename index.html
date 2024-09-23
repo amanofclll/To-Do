@@ -9,6 +9,7 @@
       font-family: Arial, sans-serif;
       background-color: #1a1423;
       color: #f4f4f4;
+      transition: background-color 0.3s, color 0.3s;
     }
     .container {
       max-width: 800px;
@@ -103,6 +104,42 @@
       flex-direction: column;
       gap: 10px;
     }
+    .dark-mode-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      cursor: pointer;
+      background-color: #4da8da;
+      padding: 10px;
+      border-radius: 50%;
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+    .close-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: #ff0000;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -151,17 +188,39 @@
         <input type="text" id="accessCode" placeholder="Enter Access Code" onkeypress="if(event.key === 'Enter') accessTasks();">
         <button onclick="accessTasks()">Access Tasks</button>
       </div>
+
+      <button class="delete-all-btn" onclick="exportTasks()">Export as Database File</button>
+      <input type="file" id="importTasksFile" style="display:none;" accept=".dbfile" onchange="importTasks(event)">
+      <button class="delete-all-btn" onclick="document.getElementById('importTasksFile').click()">Import Database File</button>
+
+      <button class="delete-all-btn" onclick="logout()">Logout</button>
     </div>
+  </div>
+
+  <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
+
+  <!-- Modal to display images -->
+  <div id="imageModal" class="modal">
+    <button class="close-btn" onclick="closeModal()">Close</button>
+    <img id="modalImage" src="">
   </div>
 
   <script>
     let users = JSON.parse(localStorage.getItem('users')) || [];
-    let currentUser = null;  // Stores the logged-in user
-    let tasks = [];
+    let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null; // Store current user
+    let tasks = currentUser ? currentUser.tasks : [];
+    let isDarkMode = false;
+
+    document.addEventListener("DOMContentLoaded", function() {
+      if (currentUser) {
+        document.getElementById('taskSection').style.display = 'block';
+        renderTasks(tasks);
+      }
+    });
 
     function registerUser() {
       const username = document.getElementById('authUsername').value;
-      const password = document.getElementById('authPassword').value;
+      const password = hashPassword(document.getElementById('authPassword').value);  // Simple password hashing
       if (username && password) {
         const userExists = users.some(user => user.username === username);
         if (userExists) {
@@ -179,17 +238,28 @@
 
     function loginUser() {
       const username = document.getElementById('authUsername').value;
-      const password = document.getElementById('authPassword').value;
+      const password = hashPassword(document.getElementById('authPassword').value);
       const user = users.find(user => user.username === username && user.password === password);
       if (user) {
         currentUser = user;
         tasks = user.tasks;
+        localStorage.setItem('currentUser', JSON.stringify(currentUser));  // Persist login
         document.getElementById('taskSection').style.display = 'block';
         renderTasks(tasks);
         alert('Login successful! Welcome ' + currentUser.username);
       } else {
         alert('Invalid username or password. Please try again.');
       }
+    }
+
+    function hashPassword(password) {
+      return btoa(password);  // Simple Base64 hashing for the sake of the project (use stronger hashing in production)
+    }
+
+    function logout() {
+      currentUser = null;
+      localStorage.removeItem('currentUser');
+      location.reload();  // Reload the page to reset the state
     }
 
     function addTask() {
@@ -223,7 +293,7 @@
         let fileDisplay;
 
         if (task.fileType === 'image') {
-          fileDisplay = `<img src="${task.file}" alt="${task.fileName}">`;
+          fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}')">`;
         } else if (task.fileType === 'video') {
           fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;"></video>`;
         } else if (task.fileType === 'file') {
@@ -274,6 +344,7 @@
     function updateLocalStorage() {
       users = users.map(user => user.username === currentUser.username ? currentUser : user);
       localStorage.setItem('users', JSON.stringify(users));
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));  // Update current user info
     }
 
     function shareTasks() {
@@ -289,6 +360,42 @@
       } catch (error) {
         alert('Invalid access code. Please try again.');
       }
+    }
+
+    function exportTasks() {
+      const jsonString = JSON.stringify(tasks);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'tasks.dbfile';  // Custom extension
+      link.click();
+    }
+
+    function importTasks(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        tasks = JSON.parse(e.target.result);
+        currentUser.tasks = tasks;
+        updateLocalStorage();
+        renderTasks(tasks);
+      };
+      reader.readAsText(file);
+    }
+
+    function toggleDarkMode() {
+      isDarkMode = !isDarkMode;
+      document.body.style.backgroundColor = isDarkMode ? '#f4f4f4' : '#1a1423';
+      document.body.style.color = isDarkMode ? '#1a1423' : '#f4f4f4';
+    }
+
+    function openModal(imageSrc) {
+      document.getElementById('modalImage').src = imageSrc;
+      document.getElementById('imageModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('imageModal').style.display = 'none';
     }
   </script>
 
