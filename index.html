@@ -221,6 +221,8 @@
     <img id="modalImage" src="">
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+
   <script>
     let users = JSON.parse(localStorage.getItem('users')) || [];
     let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null; // Store current user
@@ -400,25 +402,63 @@
       }
     }
 
+    // Compression & Export Task data
     function exportTasks() {
       const jsonString = JSON.stringify(tasks);
-      const blob = new Blob([jsonString], { type: "application/json" });
+      const compressedData = LZString.compressToUTF16(jsonString);
+      const blob = new Blob([compressedData], { type: "application/json" });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = 'tasks.dbfile';  // Custom extension
       link.click();
     }
 
+    // Import with Chunking
     function importTasks(event) {
       const file = event.target.files[0];
       const reader = new FileReader();
+      let CHUNK_SIZE = 1024 * 512;  // 512 KB chunks
+      let offset = 0;
+      let fileContent = '';
+
       reader.onload = function(e) {
-        tasks = JSON.parse(e.target.result);
-        currentUser.tasks = tasks;
-        updateLocalStorage();
-        renderTasks(tasks);
+        fileContent += e.target.result;
+
+        if (offset < file.size) {
+          // Still more data to read
+          offset += CHUNK_SIZE;
+          reader.readAsText(file.slice(offset, offset + CHUNK_SIZE));
+        } else {
+          // Ensure file is fully read before processing
+          try {
+            console.log("File read successfully, proceeding to decompression...");
+            
+            const decompressedData = LZString.decompressFromUTF16(fileContent);
+            if (!decompressedData) {
+              throw new Error("Decompression failed.");
+            }
+
+            tasks = JSON.parse(decompressedData);
+            if (!tasks) {
+              throw new Error("Error parsing JSON from decompressed data.");
+            }
+
+            currentUser.tasks = tasks;
+            updateLocalStorage();
+            renderTasks(tasks);
+            alert('Tasks successfully imported!');
+          } catch (error) {
+            console.error("Error during import:", error);
+            alert('Error parsing tasks file: ' + error.message);
+          }
+        }
       };
-      reader.readAsText(file);
+
+      reader.onerror = function() {
+        alert('Error reading file');
+      };
+
+      reader.readAsText(file.slice(0, CHUNK_SIZE));
     }
 
     function toggleDarkMode() {
