@@ -140,6 +140,19 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    /* Password Show/Hide Eye */
+    .password-wrapper {
+      position: relative;
+    }
+    .password-wrapper input {
+      width: 100%;
+    }
+    .password-wrapper .toggle-password {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -155,7 +168,10 @@
     <div class="auth-section">
       <div class="auth-form">
         <input type="text" id="authUsername" placeholder="Username">
-        <input type="password" id="authPassword" placeholder="Password">
+        <div class="password-wrapper">
+          <input type="password" id="authPassword" placeholder="Password">
+          <span class="toggle-password" onclick="togglePassword()">👁️</span>
+        </div>
         <button class="auth-btn" onclick="registerUser()">Register</button>
         <button class="auth-btn" onclick="loginUser()">Login</button>
       </div>
@@ -265,22 +281,46 @@
     function addTask() {
       const taskInput = document.getElementById('taskInput').value || 'No description provided';
       const fileInput = document.getElementById('fileInput').files[0];
-      
-      const newTask = {
-        id: Date.now(),
-        description: taskInput,
-        status: 'Pending',
-        fileType: fileInput ? (fileInput.type.startsWith('image/') ? 'image' : fileInput.type.startsWith('video/') ? 'video' : 'file') : 'none',
-        fileName: fileInput ? fileInput.name : '',
-        file: fileInput ? URL.createObjectURL(fileInput) : ''
-      };
 
-      tasks.push(newTask);
-      currentUser.tasks = tasks;
-      updateLocalStorage();
-      renderTasks(tasks);
-      document.getElementById('taskInput').value = '';
-      document.getElementById('fileInput').value = '';
+      if (fileInput) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const fileData = event.target.result;
+
+          const newTask = {
+            id: Date.now(),
+            description: taskInput,
+            status: 'Pending',
+            fileType: fileInput.type.startsWith('image/') ? 'image' : 'file',
+            fileName: fileInput.name,
+            file: fileData  // Store base64 file data
+          };
+
+          tasks.push(newTask);
+          currentUser.tasks = tasks;
+          updateLocalStorage();
+          renderTasks(tasks);
+          document.getElementById('taskInput').value = '';
+          document.getElementById('fileInput').value = '';
+        };
+
+        reader.readAsDataURL(fileInput);  // Read file as Base64
+      } else {
+        const newTask = {
+          id: Date.now(),
+          description: taskInput,
+          status: 'Pending',
+          fileType: 'none',
+          fileName: '',
+          file: ''
+        };
+
+        tasks.push(newTask);
+        currentUser.tasks = tasks;
+        updateLocalStorage();
+        renderTasks(tasks);
+        document.getElementById('taskInput').value = '';
+      }
     }
 
     function renderTasks(taskList) {
@@ -294,8 +334,6 @@
 
         if (task.fileType === 'image') {
           fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}')">`;
-        } else if (task.fileType === 'video') {
-          fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;"></video>`;
         } else if (task.fileType === 'file') {
           fileDisplay = `<a href="${task.file}" download="${task.fileName}">${task.fileName}</a>`;
         }
@@ -310,7 +348,7 @@
                 <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
               </select>
             </p>
-            ${fileDisplay}
+            ${fileDisplay || ''}
           </div>
         `;
         taskListElement.appendChild(taskItem);
@@ -396,6 +434,18 @@
 
     function closeModal() {
       document.getElementById('imageModal').style.display = 'none';
+    }
+
+    function togglePassword() {
+      const passwordInput = document.getElementById('authPassword');
+      const passwordIcon = document.querySelector('.toggle-password');
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        passwordIcon.textContent = '🙈';
+      } else {
+        passwordInput.type = 'password';
+        passwordIcon.textContent = '👁️';
+      }
     }
   </script>
 
