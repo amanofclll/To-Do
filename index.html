@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List with Persistent Data, File Uploads & Modal</title>
+  <title>Collaborative To-Do List with User Authentication</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -26,7 +26,7 @@
     .logo img {
       max-width: 150px;
     }
-    .task-form {
+    .task-form, .auth-form {
       display: flex;
       justify-content: space-between;
       margin-bottom: 20px;
@@ -61,7 +61,6 @@
       padding: 10px;
       margin-bottom: 10px;
       border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .task-item img, .task-item video {
       max-width: 80px;
@@ -78,7 +77,7 @@
     .filter-dropdown {
       margin-bottom: 20px;
     }
-    .delete-all-btn {
+    .delete-all-btn, .auth-btn {
       margin-top: 20px;
       display: block;
       text-align: center;
@@ -88,54 +87,21 @@
       cursor: pointer;
       color: #f4f4f4;
     }
-    .delete-all-btn:hover {
+    .delete-all-btn:hover, .auth-btn:hover {
       background-color: #397aa3;
     }
-    /* Modal Styling */
-    .modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-      background-color: rgba(0, 0, 0, 0.8);
-      padding-top: 50px;
+    .auth-section {
+      margin-bottom: 20px;
     }
-    .modal-content {
-      margin: auto;
-      padding: 20px;
-      width: 80%;
-      max-width: 600px;
-      background-color: white;
-      border-radius: 5px;
-      text-align: center;
+    .auth-form {
+      flex-direction: column;
+      gap: 10px;
     }
-    .modal-content img {
-      max-width: 100%;
-      height: auto;
-    }
-    .modal-content video {
-      width: 100%;
-      height: auto;
-    }
-    .close-btn {
-      background-color: #ff4c4c;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    /* New Styles for Sharing and Accessing Tasks */
     .share-access {
       margin-top: 20px;
       display: flex;
       flex-direction: column;
-      gap: 10px; /* Add space between elements */
+      gap: 10px;
     }
   </style>
 </head>
@@ -146,53 +112,90 @@
       <img src="https://growbrandindia.odoo.com/web/image/website/1/logo/growbrandindia.in?unique=58ac854" alt="Grow Brand India">
     </div>
 
-    <h1>To-Do List with Persistent Data, File Uploads & Modal</h1>
+    <h1>Collaborative To-Do List with User Authentication</h1>
 
-    <div class="task-form">
-      <input type="text" id="taskInput" placeholder="Enter Task Description (Optional)">
-      <input type="file" id="fileInput" accept="*/*" style="display:none;">
-      <button onclick="document.getElementById('fileInput').click();">Upload File</button>
-      <button onclick="addTask()">Add Task</button>
+    <!-- User Authentication Section -->
+    <div class="auth-section">
+      <div class="auth-form">
+        <input type="text" id="authUsername" placeholder="Username">
+        <input type="password" id="authPassword" placeholder="Password">
+        <button class="auth-btn" onclick="registerUser()">Register</button>
+        <button class="auth-btn" onclick="loginUser()">Login</button>
+      </div>
     </div>
 
-    <div class="filter-dropdown">
-      <label for="filterStatus">Filter by status: </label>
-      <select id="filterStatus" onchange="filterTasks()">
-        <option value="All">All</option>
-        <option value="Pending">Pending</option>
-        <option value="WIP">WIP</option>
-        <option value="Done">Done</option>
-      </select>
-    </div>
+    <!-- Task Section (Visible after login) -->
+    <div id="taskSection" style="display:none;">
+      <div class="task-form">
+        <input type="text" id="taskInput" placeholder="Enter Task Description (Optional)">
+        <input type="file" id="fileInput" accept="*/*" style="display:none;">
+        <button onclick="document.getElementById('fileInput').click();">Upload File</button>
+        <button onclick="addTask()">Add Task</button>
+      </div>
 
-    <ul id="taskList" class="task-list"></ul>
-    <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Tasks</button>
+      <div class="filter-dropdown">
+        <label for="filterStatus">Filter by status: </label>
+        <select id="filterStatus" onchange="filterTasks()">
+          <option value="All">All</option>
+          <option value="Pending">Pending</option>
+          <option value="WIP">WIP</option>
+          <option value="Done">Done</option>
+        </select>
+      </div>
 
-    <div class="share-access">
-      <button class="delete-all-btn" onclick="shareTasks()">Share Tasks</button>
-      <input type="text" id="accessCode" placeholder="Enter Access Code" onkeypress="if(event.key === 'Enter') accessTasks();">
-      <button onclick="accessTasks()">Access Tasks</button>
-    </div>
-  </div>
+      <ul id="taskList" class="task-list"></ul>
+      <button class="delete-all-btn" onclick="deleteAllTasks()">Delete All Tasks</button>
 
-  <div id="fileModal" class="modal">
-    <div class="modal-content">
-      <span id="modalDescription"></span>
-      <img id="modalImage" src="" alt="Task File" style="display: none;">
-      <video id="modalVideo" controls style="display: none; width: 100%;"></video>
-      <a id="modalLink" href="" target="_blank" style="display: none;">Download File</a>
-      <button class="close-btn" onclick="closeModal()">Close</button>
+      <div class="share-access">
+        <button class="delete-all-btn" onclick="shareTasks()">Share Tasks</button>
+        <input type="text" id="accessCode" placeholder="Enter Access Code" onkeypress="if(event.key === 'Enter') accessTasks();">
+        <button onclick="accessTasks()">Access Tasks</button>
+      </div>
     </div>
   </div>
 
   <script>
-    const userId = 'unique_user_id';  // Unique ID for each user
-    let tasks = JSON.parse(localStorage.getItem(userId + '_tasks')) || [];
+    let users = JSON.parse(localStorage.getItem('users')) || [];
+    let currentUser = null;  // Stores the logged-in user
+    let tasks = [];
+
+    function registerUser() {
+      const username = document.getElementById('authUsername').value;
+      const password = document.getElementById('authPassword').value;
+      if (username && password) {
+        const userExists = users.some(user => user.username === username);
+        if (userExists) {
+          alert('User already exists. Please log in.');
+        } else {
+          const newUser = { username, password, tasks: [] };
+          users.push(newUser);
+          localStorage.setItem('users', JSON.stringify(users));
+          alert('Registration successful! You can now log in.');
+        }
+      } else {
+        alert('Please provide both username and password.');
+      }
+    }
+
+    function loginUser() {
+      const username = document.getElementById('authUsername').value;
+      const password = document.getElementById('authPassword').value;
+      const user = users.find(user => user.username === username && user.password === password);
+      if (user) {
+        currentUser = user;
+        tasks = user.tasks;
+        document.getElementById('taskSection').style.display = 'block';
+        renderTasks(tasks);
+        alert('Login successful! Welcome ' + currentUser.username);
+      } else {
+        alert('Invalid username or password. Please try again.');
+      }
+    }
 
     function addTask() {
       const taskInput = document.getElementById('taskInput').value || 'No description provided';
       const fileInput = document.getElementById('fileInput').files[0];
-
+      
       const newTask = {
         id: Date.now(),
         description: taskInput,
@@ -203,10 +206,9 @@
       };
 
       tasks.push(newTask);
+      currentUser.tasks = tasks;
       updateLocalStorage();
       renderTasks(tasks);
-
-      // Clear the inputs
       document.getElementById('taskInput').value = '';
       document.getElementById('fileInput').value = '';
     }
@@ -221,11 +223,11 @@
         let fileDisplay;
 
         if (task.fileType === 'image') {
-          fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'image')">`;
+          fileDisplay = `<img src="${task.file}" alt="${task.fileName}">`;
         } else if (task.fileType === 'video') {
-          fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;" onclick="openModal('${task.file}', '${task.description}', 'video')"></video>`;
+          fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;"></video>`;
         } else if (task.fileType === 'file') {
-          fileDisplay = `<a href="${task.file}" download="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'file')">${task.fileName}</a>`;
+          fileDisplay = `<a href="${task.file}" download="${task.fileName}">${task.fileName}</a>`;
         }
 
         taskItem.innerHTML = `
@@ -246,89 +248,48 @@
     }
 
     function updateTaskStatus(taskId, newStatus) {
-      tasks = tasks.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      );
+      tasks = tasks.map(task => task.id === taskId ? { ...task, status: newStatus } : task);
+      currentUser.tasks = tasks;
       updateLocalStorage();
       renderTasks(tasks);
     }
 
     function filterTasks() {
-      const filterStatus = document.getElementById('filterStatus').value;
-
-      if (filterStatus === 'All') {
+      const filterValue = document.getElementById('filterStatus').value;
+      if (filterValue === 'All') {
         renderTasks(tasks);
       } else {
-        const filteredTasks = tasks.filter(task => task.status === filterStatus);
+        const filteredTasks = tasks.filter(task => task.status === filterValue);
         renderTasks(filteredTasks);
       }
     }
 
     function deleteAllTasks() {
-      if (confirm('Are you sure you want to delete all tasks?')) {
-        tasks = [];
-        updateLocalStorage();
-        renderTasks(tasks);
-      }
+      tasks = [];
+      currentUser.tasks = tasks;
+      updateLocalStorage();
+      renderTasks(tasks);
     }
 
     function updateLocalStorage() {
-      localStorage.setItem(userId + '_tasks', JSON.stringify(tasks));
+      users = users.map(user => user.username === currentUser.username ? currentUser : user);
+      localStorage.setItem('users', JSON.stringify(users));
     }
 
     function shareTasks() {
-      const code = Math.random().toString(36).substring(2, 8);
-      localStorage.setItem(code, JSON.stringify(tasks)); // Store tasks with the access code
-      alert(`Share this code: ${code}`);
+      const shareCode = btoa(JSON.stringify(currentUser.tasks));
+      prompt('Copy and share this code with others to give them access:', shareCode);
     }
 
     function accessTasks() {
       const accessCode = document.getElementById('accessCode').value;
-      const sharedTasks = JSON.parse(localStorage.getItem(accessCode));
-      if (sharedTasks) {
-        tasks = sharedTasks;
-        updateLocalStorage(); // Update local storage with the new tasks
+      try {
+        tasks = JSON.parse(atob(accessCode));
         renderTasks(tasks);
-        alert('Tasks accessed successfully!');
-      } else {
-        alert('Invalid access code.');
+      } catch (error) {
+        alert('Invalid access code. Please try again.');
       }
     }
-
-    function openModal(fileSrc, description, fileType) {
-      const modal = document.getElementById('fileModal');
-      document.getElementById('modalDescription').innerText = description;
-
-      const modalImage = document.getElementById('modalImage');
-      const modalVideo = document.getElementById('modalVideo');
-      const modalLink = document.getElementById('modalLink');
-
-      modalImage.style.display = 'none';
-      modalVideo.style.display = 'none';
-      modalLink.style.display = 'none';
-
-      if (fileType === 'image') {
-        modalImage.src = fileSrc;
-        modalImage.style.display = 'block';
-      } else if (fileType === 'video') {
-        modalVideo.src = fileSrc;
-        modalVideo.style.display = 'block';
-      } else {
-        modalLink.href = fileSrc;
-        modalLink.textContent = 'Download File';
-        modalLink.style.display = 'block';
-      }
-
-      modal.style.display = 'block';
-    }
-
-    function closeModal() {
-      const modal = document.getElementById('fileModal');
-      modal.style.display = 'none';
-    }
-
-    // Initial render on page load
-    renderTasks(tasks);
   </script>
 
 </body>
