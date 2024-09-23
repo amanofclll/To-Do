@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>To-Do List with Firebase Firestore Integration</title>
+  <title>To-Do List with Persistent Data, File Uploads & Modal</title>
   <style>
-    /* Styles remain the same */
     body {
       font-family: Arial, sans-serif;
       background-color: #1a1423;
@@ -20,6 +19,13 @@
       text-align: center;
       color: #f4f4f4;
     }
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo img {
+      max-width: 150px;
+    }
     .task-form {
       display: flex;
       justify-content: space-between;
@@ -30,6 +36,10 @@
       border-radius: 5px;
       border: none;
       margin-right: 10px;
+    }
+    input, select {
+      background-color: #2a2433;
+      color: #f4f4f4;
     }
     button {
       background-color: #4da8da;
@@ -53,6 +63,35 @@
       border-radius: 5px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
+    .task-item img, .task-item video {
+      max-width: 80px;
+      max-height: 80px;
+      cursor: pointer;
+    }
+    .task-item a {
+      color: #4da8da;
+      text-decoration: none;
+    }
+    .task-item a:hover {
+      text-decoration: underline;
+    }
+    .filter-dropdown {
+      margin-bottom: 20px;
+    }
+    .delete-all-btn {
+      margin-top: 20px;
+      display: block;
+      text-align: center;
+      background-color: #4da8da;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #f4f4f4;
+    }
+    .delete-all-btn:hover {
+      background-color: #397aa3;
+    }
+    /* Modal Styling */
     .modal {
       display: none;
       position: fixed;
@@ -65,20 +104,65 @@
       background-color: rgba(0, 0, 0, 0.8);
       padding-top: 50px;
     }
+    .modal-content {
+      margin: auto;
+      padding: 20px;
+      width: 80%;
+      max-width: 600px;
+      background-color: white;
+      border-radius: 5px;
+      text-align: center;
+    }
+    .modal-content img {
+      max-width: 100%;
+      height: auto;
+    }
+    .modal-content video {
+      width: 100%;
+      height: auto;
+    }
+    .close-btn {
+      background-color: #ff4c4c;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    /* New Styles for Sharing and Accessing Tasks */
+    .share-access {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px; /* Add space between elements */
+    }
   </style>
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
 </head>
 <body>
 
   <div class="container">
-    <h1>To-Do List with Firebase Firestore Integration</h1>
+    <div class="logo">
+      <img src="https://growbrandindia.odoo.com/web/image/website/1/logo/growbrandindia.in?unique=58ac854" alt="Grow Brand India">
+    </div>
+
+    <h1>To-Do List with Persistent Data, File Uploads & Modal</h1>
+
     <div class="task-form">
       <input type="text" id="taskInput" placeholder="Enter Task Description (Optional)">
       <input type="file" id="fileInput" accept="*/*" style="display:none;">
       <button onclick="document.getElementById('fileInput').click();">Upload File</button>
       <button onclick="addTask()">Add Task</button>
+    </div>
+
+    <div class="filter-dropdown">
+      <label for="filterStatus">Filter by status: </label>
+      <select id="filterStatus" onchange="filterTasks()">
+        <option value="All">All</option>
+        <option value="Pending">Pending</option>
+        <option value="WIP">WIP</option>
+        <option value="Done">Done</option>
+      </select>
     </div>
 
     <ul id="taskList" class="task-list"></ul>
@@ -91,77 +175,64 @@
     </div>
   </div>
 
+  <div id="fileModal" class="modal">
+    <div class="modal-content">
+      <span id="modalDescription"></span>
+      <img id="modalImage" src="" alt="Task File" style="display: none;">
+      <video id="modalVideo" controls style="display: none; width: 100%;"></video>
+      <a id="modalLink" href="" target="_blank" style="display: none;">Download File</a>
+      <button class="close-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+
   <script>
-    // Firebase configuration from your setup
-    const firebaseConfig = {
-      apiKey: "AIzaSyB0Y0NKe6Olyo77Oh2VO_wRbEafLK6QyvA",
-      authDomain: "to-do-3656f.firebaseapp.com",
-      projectId: "to-do-3656f",
-      storageBucket: "to-do-3656f.appspot.com",
-      messagingSenderId: "781487645733",
-      appId: "1:781487645733:web:d87e1dd4e5754f88704bcc",
-      measurementId: "G-1L8YTXGWC8"
-    };
+    const userId = 'unique_user_id';  // Unique ID for each user
+    let tasks = JSON.parse(localStorage.getItem(userId + '_tasks')) || [];
 
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    const userId = 'unique_user_id';  // Unique user ID for each user
-
-    // Add Task to Firestore
-    async function addTask() {
+    function addTask() {
       const taskInput = document.getElementById('taskInput').value || 'No description provided';
       const fileInput = document.getElementById('fileInput').files[0];
 
       const newTask = {
+        id: Date.now(),
         description: taskInput,
         status: 'Pending',
         fileType: fileInput ? (fileInput.type.startsWith('image/') ? 'image' : fileInput.type.startsWith('video/') ? 'video' : 'file') : 'none',
         fileName: fileInput ? fileInput.name : '',
-        fileUrl: fileInput ? URL.createObjectURL(fileInput) : '',
-        createdAt: new Date()
+        file: fileInput ? URL.createObjectURL(fileInput) : ''
       };
 
-      // Add the task to Firestore
-      try {
-        await db.collection(userId).add(newTask);
-        console.log("Task added to Firestore.");
-        fetchTasks();  // Refresh tasks
-      } catch (error) {
-        console.error("Error adding task to Firestore: ", error);
-      }
+      tasks.push(newTask);
+      updateLocalStorage();
+      renderTasks(tasks);
 
-      // Clear inputs
+      // Clear the inputs
       document.getElementById('taskInput').value = '';
       document.getElementById('fileInput').value = '';
     }
 
-    // Fetch Tasks from Firestore
-    async function fetchTasks() {
+    function renderTasks(taskList) {
       const taskListElement = document.getElementById('taskList');
-      taskListElement.innerHTML = '';  // Clear the list
+      taskListElement.innerHTML = '';
 
-      const querySnapshot = await db.collection(userId).orderBy('createdAt').get();
-      querySnapshot.forEach((doc) => {
-        const task = doc.data();
+      taskList.forEach(task => {
         const taskItem = document.createElement('li');
         taskItem.classList.add('task-item');
         let fileDisplay;
 
         if (task.fileType === 'image') {
-          fileDisplay = `<img src="${task.fileUrl}" alt="${task.fileName}" style="max-width: 80px;">`;
+          fileDisplay = `<img src="${task.file}" alt="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'image')">`;
         } else if (task.fileType === 'video') {
-          fileDisplay = `<video src="${task.fileUrl}" controls style="max-width: 80px;"></video>`;
-        } else {
-          fileDisplay = `<a href="${task.fileUrl}" download="${task.fileName}">${task.fileName}</a>`;
+          fileDisplay = `<video src="${task.file}" controls style="max-width: 80px;" onclick="openModal('${task.file}', '${task.description}', 'video')"></video>`;
+        } else if (task.fileType === 'file') {
+          fileDisplay = `<a href="${task.file}" download="${task.fileName}" onclick="openModal('${task.file}', '${task.description}', 'file')">${task.fileName}</a>`;
         }
 
         taskItem.innerHTML = `
           <div>
             <p><strong>${task.description}</strong></p>
             <p>Status: 
-              <select onchange="updateTaskStatus('${doc.id}', this.value)">
+              <select onchange="updateTaskStatus(${task.id}, this.value)">
                 <option value="Pending" ${task.status === 'Pending' ? 'selected' : ''}>Pending</option>
                 <option value="WIP" ${task.status === 'WIP' ? 'selected' : ''}>WIP</option>
                 <option value="Done" ${task.status === 'Done' ? 'selected' : ''}>Done</option>
@@ -174,56 +245,90 @@
       });
     }
 
-    // Update Task Status in Firestore
-    async function updateTaskStatus(taskId, newStatus) {
-      try {
-        await db.collection(userId).doc(taskId).update({ status: newStatus });
-        console.log("Task status updated.");
-        fetchTasks();  // Refresh tasks
-      } catch (error) {
-        console.error("Error updating task status: ", error);
+    function updateTaskStatus(taskId, newStatus) {
+      tasks = tasks.map(task => 
+        task.id === taskId ? { ...task, status: newStatus } : task
+      );
+      updateLocalStorage();
+      renderTasks(tasks);
+    }
+
+    function filterTasks() {
+      const filterStatus = document.getElementById('filterStatus').value;
+
+      if (filterStatus === 'All') {
+        renderTasks(tasks);
+      } else {
+        const filteredTasks = tasks.filter(task => task.status === filterStatus);
+        renderTasks(filteredTasks);
       }
     }
 
-    // Delete All Tasks from Firestore
-    async function deleteAllTasks() {
-      const querySnapshot = await db.collection(userId).get();
-      querySnapshot.forEach(async (doc) => {
-        await db.collection(userId).doc(doc.id).delete();
-      });
-      fetchTasks();  // Refresh tasks
+    function deleteAllTasks() {
+      if (confirm('Are you sure you want to delete all tasks?')) {
+        tasks = [];
+        updateLocalStorage();
+        renderTasks(tasks);
+      }
     }
 
-    // Share Tasks via Random Code
-    async function shareTasks() {
+    function updateLocalStorage() {
+      localStorage.setItem(userId + '_tasks', JSON.stringify(tasks));
+    }
+
+    function shareTasks() {
       const code = Math.random().toString(36).substring(2, 8);
-      const querySnapshot = await db.collection(userId).get();
-      const tasks = [];
-      querySnapshot.forEach((doc) => {
-        tasks.push(doc.data());
-      });
-      await db.collection('sharedTasks').doc(code).set({ tasks });
+      localStorage.setItem(code, JSON.stringify(tasks)); // Store tasks with the access code
       alert(`Share this code: ${code}`);
     }
 
-    // Access Tasks via Share Code
-    async function accessTasks() {
+    function accessTasks() {
       const accessCode = document.getElementById('accessCode').value;
-      const doc = await db.collection('sharedTasks').doc(accessCode).get();
-      if (doc.exists) {
-        const tasks = doc.data().tasks;
-        tasks.forEach(async (task) => {
-          await db.collection(userId).add(task);
-        });
-        fetchTasks();  // Refresh tasks
+      const sharedTasks = JSON.parse(localStorage.getItem(accessCode));
+      if (sharedTasks) {
+        tasks = sharedTasks;
+        updateLocalStorage(); // Update local storage with the new tasks
+        renderTasks(tasks);
         alert('Tasks accessed successfully!');
       } else {
         alert('Invalid access code.');
       }
     }
 
-    // Initial fetch on page load
-    fetchTasks();
+    function openModal(fileSrc, description, fileType) {
+      const modal = document.getElementById('fileModal');
+      document.getElementById('modalDescription').innerText = description;
+
+      const modalImage = document.getElementById('modalImage');
+      const modalVideo = document.getElementById('modalVideo');
+      const modalLink = document.getElementById('modalLink');
+
+      modalImage.style.display = 'none';
+      modalVideo.style.display = 'none';
+      modalLink.style.display = 'none';
+
+      if (fileType === 'image') {
+        modalImage.src = fileSrc;
+        modalImage.style.display = 'block';
+      } else if (fileType === 'video') {
+        modalVideo.src = fileSrc;
+        modalVideo.style.display = 'block';
+      } else {
+        modalLink.href = fileSrc;
+        modalLink.textContent = 'Download File';
+        modalLink.style.display = 'block';
+      }
+
+      modal.style.display = 'block';
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('fileModal');
+      modal.style.display = 'none';
+    }
+
+    // Initial render on page load
+    renderTasks(tasks);
   </script>
 
 </body>
